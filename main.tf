@@ -4,11 +4,11 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
-  }
+}
 }
 
 provider "aws" {
-  region = "us-east-1"
+  region = "ap-southeast-2"
 }
 
 data "aws_ami" "ubuntu" {
