@@ -1,22 +1,35 @@
 terraform {
   required_providers {
-    local = {
-      source  = "hashicorp/local"
-      version = "~> 2.5"
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
     }
   }
 }
 
-variable "environment_name" {
-  type    = string
-  default = "staging"
+provider "aws" {
+  region = "us-east-1"
 }
 
-resource "local_file" "server_config" {
-  content  = "Environment: ${var.environment_name}\nStatus: Active\n"
-  filename = "/tmp/deployed_${var.environment_name}.conf"
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"] # Canonical
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
+  }
 }
 
-output "deployed_file_path" {
-  value = local_file.server_config.filename
+resource "aws_instance" "jenkins_vm" {
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = "t3.micro"
+
+  tags = {
+    Name = "Terraform-Jenkins-VM"
+  }
+}
+
+output "instance_public_ip" {
+  value = aws_instance.jenkins_vm.public_ip
 }

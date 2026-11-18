@@ -1,54 +1,37 @@
 pipeline {
     agent any
 
-    tools {
-        terraform 'terraform-lab'
+    parameters {
+        choice(name: 'ACTION', choices: ['apply', 'destroy'], description: 'Choose whether to create or destroy the VM')
     }
 
-    parameters {
-        choice(name: 'ACTION', choices: ['apply', 'destroy'], description: 'Apply or Destroy resources')
-        string(name: 'ENV_NAME', defaultValue: 'staging', description: 'Target environment name')
+    environment {
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+        AWS_DEFAULT_REGION    = 'us-east-1'
     }
 
     stages {
-        stage('Checkout') {
+        stage('Terraform Init') {
             steps {
-                checkout scm
+                sh 'terraform init'
             }
         }
-
-        stage('Init & Validate') {
+        stage('Terraform Plan') {
             steps {
-                sh 'terraform init -input=false'
-                sh 'terraform validate'
+                sh 'terraform plan -out=tfplan'
             }
         }
-
-        stage('Plan') {
+        stage('Terraform Apply / Destroy') {
             steps {
                 script {
-                    def destroyFlag = (params.ACTION == 'destroy') ? '-destroy' : ''
-                    sh "terraform plan ${destroyFlag} -var=\"environment_name=${params.ENV_NAME}\" -out=tfplan -input=false"
+                    if (params.ACTION == 'apply') {
+                        sh 'terraform apply -auto-approve tfplan'
+                    } else {
+                        sh 'terraform destroy -auto-approve'
+                    }
                 }
             }
-        }
-
-        stage('Approve') {
-            steps {
-                input message: "Approve Terraform ${params.ACTION} for ${params.ENV_NAME}?", ok: 'Proceed'
-            }
-        }
-
-        stage('Execute') {
-            steps {
-                sh 'terraform apply -input=false tfplan'
-            }
-        }
-    }
-
-    post {
-        always {
-            sh 'rm -f tfplan'
         }
     }
 }
